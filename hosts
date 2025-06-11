@@ -1,0 +1,2 @@
+[postgresql]
+15.206.157.221 ansible_ssh_private_key_file=~/Terraform.pem
