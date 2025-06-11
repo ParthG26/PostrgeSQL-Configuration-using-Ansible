@@ -1,0 +1,55 @@
+---
+- name: Setup PostgreSQL and Create User/DB
+  hosts: postgresql
+  become: true
+
+  vars:
+    postgres_root_password: "root@123"
+    db_user: "chat_user"
+    db_password: "chatapp_admin"
+    db_name: "ChatApp"
+
+  pre_tasks:
+    - name: Install prerequisites for PostgreSQL and PythonDB Support
+      apt:
+        name:
+          - postgresql
+          - python3-psycopg2
+        state: present
+        update_cache: yes
+    - name: Start and Enable the service
+      systemd:
+        name: postgresql
+        enabled: true
+        state: started
+
+  tasks:
+    - name: Set PostgreSQL root password using shell
+      shell: |
+        sudo -u postgres psql -c "ALTER USER postgres WITH PASSWORD '{{ postgres_root_password}}';"
+      args:
+        executable: /bin/bash
+    - name: Create the Database
+      shell: |
+        sudo -u postgres psql -c "CREATE DATABASE {{db_name}};"
+      args:
+        executable: /bin/bash
+      register: create_db
+    - name: Create the User
+      shell: |
+        sudo -u postgresql psql -c "DO \$\$
+        BEGIN
+          IF NOT EXISTS(
+            SELECT FROM pg_catalog.pg_rules WHERE rolname = '{{db_user}}'
+          ) THEN
+            CREATE ROLE {{db_user}} WITH LOGIN PASSWORD '{{db_password}}';
+          END IF;
+        END
+        \$\$;"
+        args:
+          executable: /bin/bash
+    - name: Grant privileges to the new user
+      shell: |
+        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE {{db_name}} TO {{db_user}};"
+      args:
+        executable: /bin/bash
